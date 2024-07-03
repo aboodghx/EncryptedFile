@@ -18,13 +18,38 @@ public class AttachmentContoller : ControllerBase
         var tempFilePath = Path.GetTempFileName();
         using (var stream = new FileStream(tempFilePath, FileMode.Create))
         {
-            videoFile.CopyTo(stream);
+            await videoFile.CopyToAsync(stream, cancellationToken);
         }
 
-        string encryptedFilePath = Path.GetTempFileName();
+        string outputDirectory = @"C:\Uploads\Encrypted";
+        if (!Directory.Exists(outputDirectory))
+        {
+            Directory.CreateDirectory(outputDirectory);
+        }
+        string encryptedFileName = Path.GetFileNameWithoutExtension(tempFilePath) + "_encrypted" + Path.GetExtension(tempFilePath);
+        string encryptedFilePath = Path.Combine(outputDirectory, encryptedFileName);
+
         string password = videoPassword;
         fileServies.EncryptFile(tempFilePath, encryptedFilePath, password);
 
-        return Ok();
+        return Ok(new { EncryptedFilePath = encryptedFilePath });
+    }
+
+    [HttpPost("decrypt")]
+    public IActionResult DecryptVideo(string encryptedFilePath, string videoPassword)
+    {
+        try
+        {
+            fileServies.DecryptFileToUploads(encryptedFilePath, videoPassword);
+
+            string decryptedFileName = Path.GetFileNameWithoutExtension(encryptedFilePath).Replace(".enc", "") + ".mp4";
+            string decryptedFilePath = Path.Combine(@"C:\Uploads\Decrypted", decryptedFileName);
+
+            return Ok(new { DecryptedFilePath = decryptedFilePath });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { Error = ex.Message });
+        }
     }
 }
